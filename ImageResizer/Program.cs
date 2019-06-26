@@ -28,6 +28,7 @@ namespace ImageResizer
                 sw.Start();
                 imageProcess.ResizeImages(sourcePath, destinationPath, 2.0);
                 sw.Stop();
+                GC.Collect();
 
                 totalms += sw.ElapsedMilliseconds;
                 Console.WriteLine($"{specificName} 花費時間: {sw.ElapsedMilliseconds} ms");
@@ -35,7 +36,6 @@ namespace ImageResizer
 
             var syncAvg = totalms / runtimes;
             Console.WriteLine($"{specificName} 執行 {runtimes} 次，平均花費時間: {syncAvg} ms");
-            GC.Collect();
             
             // ------------------------------------------------------------------
             specificName = "async";
@@ -49,7 +49,7 @@ namespace ImageResizer
                 sw.Start();
                 await imageProcess.ResizeImagesAsync(sourcePath, asyncDestinationPath, 2.0);
                 sw.Stop();
-
+                GC.Collect();
                 Console.WriteLine($"async 花費時間: {sw.ElapsedMilliseconds} ms");
                 totalms += sw.ElapsedMilliseconds;
             }
@@ -58,7 +58,7 @@ namespace ImageResizer
             Console.WriteLine($"{specificName} 執行 {runtimes} 次，平均花費時間: {asyncAvg} ms");
             var perfomance = Math.Truncate((decimal)asyncAvg / (decimal)syncAvg * 1000) / 10;
             Console.WriteLine($"{specificName} 效率提升 {100-perfomance}%");
-            GC.Collect();
+            
             
             // --------------------------------------------------
             specificName = "parallelasync";
@@ -73,7 +73,7 @@ namespace ImageResizer
                 sw.Start();
                 await imageProcess.ResizeImagesParallelAsync(sourcePath, paralleldestinationPath, 2.0);
                 sw.Stop();
-
+                GC.Collect();
                 totalms += sw.ElapsedMilliseconds;
                 Console.WriteLine($"{specificName} 花費時間: {sw.ElapsedMilliseconds} ms");
             }
@@ -82,7 +82,7 @@ namespace ImageResizer
             perfomance = Math.Truncate((decimal)paraelleAsyncAvg / (decimal)syncAvg * 1000) / 10;
             Console.WriteLine($"{specificName} 執行 {runtimes} 次，平均花費時間: {paraelleAsyncAvg} ms");
             Console.WriteLine($"{specificName} 效率提升 {100-perfomance}%");
-            GC.Collect();
+            
             
             // ------------------------------------------------------
             
@@ -98,7 +98,7 @@ namespace ImageResizer
                 sw.Start();
                 await imageProcess.ResizeImagesPLINQAsync(sourcePath, plinqdestinationPath, 2.0);
                 sw.Stop();
-
+                GC.Collect();
                 totalms += sw.ElapsedMilliseconds;
                 Console.WriteLine($"{specificName} 花費時間: {sw.ElapsedMilliseconds} ms");
             }
@@ -107,7 +107,7 @@ namespace ImageResizer
             perfomance = Math.Truncate((decimal)plinqAsyncAvg / (decimal)syncAvg * 1000) / 10;
             Console.WriteLine($"{specificName} 執行 {runtimes} 次，平均花費時間: {plinqAsyncAvg} ms");
             Console.WriteLine($"{specificName} 效率提升 {100-perfomance}%");
-            GC.Collect();
+            
             
             Console.ReadKey();
         }
