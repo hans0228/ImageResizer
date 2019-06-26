@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ImageResizer
@@ -32,6 +34,8 @@ namespace ImageResizer
             }
         }
 
+        #region 圖檔縮放
+
         /// <summary>
         /// 進行圖片的縮放作業
         /// </summary>
@@ -58,9 +62,9 @@ namespace ImageResizer
                     sourceWidth, sourceHeight,
                     destionatonWidth, destionatonHeight);
 
-                imgPhoto.Dispose();
                 processedImage.Save(destFile, ImageFormat.Jpeg);
-                // 很重要!! 這行一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                // 很重要!! 以下一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                imgPhoto.Dispose();
                 processedImage.Dispose();
             }
         }
@@ -76,8 +80,8 @@ namespace ImageResizer
                     var imgName = Path.GetFileNameWithoutExtension(filePath);
                     var destFile = Path.Combine(destPath, imgName + ".jpg");
 
-                    //Image imgPhoto = await Task.Run(() => Image.FromFile(filePath));
-                    Image imgPhoto = Image.FromFile(filePath);
+                    Image imgPhoto = await Task.Run(() => Image.FromFile(filePath));
+                    //Image imgPhoto = Image.FromFile(filePath);
                     int sourceWidth = imgPhoto.Width;
                     int sourceHeight = imgPhoto.Height;
                     int destionatonWidth = (int)(sourceWidth * scale);
@@ -87,9 +91,9 @@ namespace ImageResizer
                         sourceWidth, sourceHeight,
                         destionatonWidth, destionatonHeight);
 
-                    imgPhoto.Dispose();
                     processedImage.Save(destFile, ImageFormat.Jpeg);
-                    // 很重要!! 這行一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    // 很重要!! 以下一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    imgPhoto.Dispose();
                     processedImage.Dispose();
                 });
 
@@ -109,18 +113,22 @@ namespace ImageResizer
                 var resizeTask = Task.Run(async () =>
                 {
                     string imgName = Path.GetFileNameWithoutExtension(filePath);
-                    Image imgPhoto = Image.FromFile(filePath);
+                    string destFile = Path.Combine(destPath, imgName + ".jpg");
+
+                    Image imgPhoto = await Task.Run(() => Image.FromFile(filePath));
+                    //Image imgPhoto = Image.FromFile(filePath);
                     int sourceWidth = imgPhoto.Width;
                     int sourceHeight = imgPhoto.Height;
                     int destionatonWidth = (int)(sourceWidth * scale);
                     int destionatonHeight = (int)(sourceHeight * scale);
+                    
                     var processedImage = await ProcessBitmapAsync((Bitmap)imgPhoto,
                         sourceWidth, sourceHeight,
                         destionatonWidth, destionatonHeight);
-                    imgPhoto.Dispose();
-                    string destFile = Path.Combine(destPath, imgName + ".jpg");
+                    
                     processedImage.Save(destFile, ImageFormat.Jpeg);
-                    // 很重要!! 這行一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    // 很重要!! 以下一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    imgPhoto.Dispose();
                     processedImage.Dispose();
                 });
 
@@ -129,6 +137,43 @@ namespace ImageResizer
 
             await Task.WhenAll(tasks);
         }
+        
+        public async Task ResizeImagesPLINQAsync(string sourcePath, string destPath, double scale)
+        {
+            var allFiles = FindImages(sourcePath);
+            var tasks = allFiles.AsParallel().Select((filePath) =>
+            {
+                return Task.Run(async () =>
+                {
+                    string imgName = Path.GetFileNameWithoutExtension(filePath);
+                    string destFile = Path.Combine(destPath, imgName + ".jpg");
+
+                    Image imgPhoto = await Task.Run(() => Image.FromFile(filePath));
+                    //Image imgPhoto = Image.FromFile(filePath);
+                    int sourceWidth = imgPhoto.Width;
+                    int sourceHeight = imgPhoto.Height;
+                    int destionatonWidth = (int)(sourceWidth * scale);
+                    int destionatonHeight = (int)(sourceHeight * scale);
+                    
+                    var processedImage = await ProcessBitmapAsync((Bitmap)imgPhoto,
+                        sourceWidth, sourceHeight,
+                        destionatonWidth, destionatonHeight);
+                    
+                    processedImage.Save(destFile, ImageFormat.Jpeg);
+                    // 很重要!! 以下一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    imgPhoto.Dispose();
+                    processedImage.Dispose();
+                });
+            }); 
+
+            await Task.WhenAll(tasks);
+        }
+
+        #endregion
+
+        
+
+        #region 讀取圖檔路徑
 
         /// <summary>
         /// 找出指定目錄下的圖片
@@ -137,12 +182,51 @@ namespace ImageResizer
         /// <returns></returns>
         public List<string> FindImages(string srcPath)
         {
+//            var sw = new Stopwatch();
+//            sw.Start();
             List<string> files = new List<string>();
             files.AddRange(Directory.GetFiles(srcPath, "*.png", SearchOption.AllDirectories));
             files.AddRange(Directory.GetFiles(srcPath, "*.jpg", SearchOption.AllDirectories));
             files.AddRange(Directory.GetFiles(srcPath, "*.jpeg", SearchOption.AllDirectories));
+//            sw.Stop();
+//            Console.WriteLine($"取得圖檔路徑 花費時間: {sw.ElapsedMilliseconds} ms");
             return files;
         }
+        
+        /// <summary>
+        /// 找出指定目錄下的圖片
+        /// </summary>
+        /// <param name="srcPath">圖片來源目錄路徑</param>
+        /// <returns></returns>
+        public async Task<string[]> FindImagesAsync(string srcPath)
+        {
+//            var sw = new Stopwatch();
+//            sw.Start();
+            var files = new ConcurrentStack<string>();
+            var searchPatterns = new[] {"*.png","*.jpg","*.jpeg" };
+            var tasks = new List<Task>();
+
+            foreach (var pattern in searchPatterns)
+            {
+                var task = Task.Run(() =>
+                {
+                    files.PushRange(Directory.GetFiles(srcPath, pattern, SearchOption.AllDirectories));
+                });
+                tasks.Add(task);
+            }
+
+            await Task.WhenAll(tasks);
+            
+//            sw.Stop();
+//            Console.WriteLine($"取得圖檔路徑 花費時間: {sw.ElapsedMilliseconds} ms");
+            return files.ToArray();
+        }
+        
+
+        #endregion
+
+
+        #region 圖檔處理
 
         /// <summary>
         /// 針對指定圖片進行縮放作業
@@ -172,5 +256,8 @@ namespace ImageResizer
         {
             return await Task.Run(() => ProcessBitmap(img, srcWidth, srcHeight, newWidth, newHeight));
         }
+
+        #endregion
+       
     }
 }
