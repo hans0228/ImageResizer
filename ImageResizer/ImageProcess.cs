@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -42,8 +43,10 @@ namespace ImageResizer
             var allFiles = FindImages(sourcePath);
             foreach (var filePath in allFiles)
             {
-                Image imgPhoto = Image.FromFile(filePath);
                 string imgName = Path.GetFileNameWithoutExtension(filePath);
+                string destFile = Path.Combine(destPath, imgName + ".jpg");
+
+                Image imgPhoto = Image.FromFile(filePath);
 
                 int sourceWidth = imgPhoto.Width;
                 int sourceHeight = imgPhoto.Height;
@@ -55,8 +58,10 @@ namespace ImageResizer
                     sourceWidth, sourceHeight,
                     destionatonWidth, destionatonHeight);
 
-                string destFile = Path.Combine(destPath, imgName + ".jpg");
+                imgPhoto.Dispose();
                 processedImage.Save(destFile, ImageFormat.Jpeg);
+                // 很重要!! 這行一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                processedImage.Dispose();
             }
         }
 
@@ -82,7 +87,10 @@ namespace ImageResizer
                         sourceWidth, sourceHeight,
                         destionatonWidth, destionatonHeight);
 
+                    imgPhoto.Dispose();
                     processedImage.Save(destFile, ImageFormat.Jpeg);
+                    // 很重要!! 這行一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    processedImage.Dispose();
                 });
 
                 tasks.Add(resizeTask);
@@ -101,19 +109,19 @@ namespace ImageResizer
                 var resizeTask = Task.Run(async () =>
                 {
                     string imgName = Path.GetFileNameWithoutExtension(filePath);
-                    //Image imgPhoto = await Task.Run(() => Image.FromFile(filePath));
                     Image imgPhoto = Image.FromFile(filePath);
                     int sourceWidth = imgPhoto.Width;
                     int sourceHeight = imgPhoto.Height;
                     int destionatonWidth = (int)(sourceWidth * scale);
                     int destionatonHeight = (int)(sourceHeight * scale);
-
                     var processedImage = await ProcessBitmapAsync((Bitmap)imgPhoto,
                         sourceWidth, sourceHeight,
                         destionatonWidth, destionatonHeight);
-
+                    imgPhoto.Dispose();
                     string destFile = Path.Combine(destPath, imgName + ".jpg");
-                    await Task.Run(() => processedImage.Save(destFile, ImageFormat.Jpeg));
+                    processedImage.Save(destFile, ImageFormat.Jpeg);
+                    // 很重要!! 這行一定要加，不然執行到一定的次數就會 crash, ex. bitmamp argument Exception
+                    processedImage.Dispose();
                 });
 
                 tasks.Push(resizeTask);
